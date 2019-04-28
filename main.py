@@ -60,19 +60,24 @@ def cleanIllegalChar(s):
 
 
 def download_video(index, dir, title, url):
-    with closing(requests.get(url, stream=True)) as response:
-        chunk_size = 1024
-        content_size = int(response.headers['content-length'])
-        title_clean = cleanIllegalChar(title)
-        video_file = "%s/%d_%s.mp4" % (dir, index, title_clean)
-        if os.path.exists(video_file) and os.path.getsize(video_file) == content_size:
+    title_clean = cleanIllegalChar(title)
+    video_file = "%s/%d_%s.mp4" % (dir, index, title_clean)
+    header = {}
+    if os.path.exists(video_file):
+        local_file_size = os.path.getsize(video_file)
+        header = {'Range': 'bytes=%d-' % local_file_size}
+    with closing(requests.get(url, stream=True, headers=header)) as response:
+        if response.status_code == 416:
             print('跳过' + title)
         else:
+            chunk_size = 1024
+            content_size = int(response.headers['content-length'])
             progress = ProgressBar(title, total=content_size, unit="KB", chunk_size=chunk_size,
-                                   run_status="正在下载", fin_status="下载完成")
-            with open(video_file, "wb") as file:
+                                    run_status="正在下载", fin_status="下载完成")
+            with open(video_file, "ab") as file:
                 for data in response.iter_content(chunk_size=chunk_size):
                     file.write(data)
+                    file.flush()
                     progress.refresh(count=len(data))
 
 
